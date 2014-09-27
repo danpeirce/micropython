@@ -1,7 +1,6 @@
 """
 Driver for accelerometer on STM32F4 Discover board.
 
-Assumes it's a LIS302DL MEMS device.
 Sets accelerometer range at +-2g.
 Returns list containing X,Y,Z axis acceleration values in 'g' units (9.8m/s^2).
 
@@ -20,37 +19,60 @@ from pyb import SPI
 
 READWRITE_CMD = const(0x80) 
 MULTIPLEBYTE_CMD = const(0x40)
-LIS302DL_WHO_AM_I_ADDR = const(0x0f)
-LIS302DL_CTRL_REG1_ADDR = const(0x20)
-LIS302DL_OUT_X = const(0x29)
-# Configuration for 100Hz sampling rate, +-2g range
-LIS302DL_CONF = 0b01000111
+WHO_AM_I_ADDR = const(0x0f)
+OUT_X_ADDR = const(0x29)
+OUT_Y_ADDR = const(0x2b)
+OUT_Z_ADDR = const(0x2d)
+OUT_T_ADDR = const(0x0c)
 
-def signed8(x):
-    if x & 0x80:
-        return x - 256
-    else:
-        return x
+LIS302DL_WHO_AM_I_VAL = const(0x3b)
+LIS302DL_CTRL_REG1_ADDR = const(0x20)
+# Configuration for 100Hz sampling rate, +-2g range
+LIS302DL_CONF = const(0b01000111)
+
+LIS3DSH_WHO_AM_I_VAL = const(0x3f)
+LIS3DSH_CTRL_REG4_ADDR = const(0x20)
+LIS3DSH_CTRL_REG5_ADDR = const(0x24)
+# Configuration for 100Hz sampling rate, +-2g range
+LIS3DSH_CTRL_REG4_CONF = const(0b01100111)
+LIS3DSH_CTRL_REG5_CONF = const(0b00000000)
 
 class STAccel:
     def __init__(self):
         self.cs_pin = Pin('PE3', Pin.OUT_PP, Pin.PULL_NONE)
         self.cs_pin.high()
         self.spi = SPI(1, SPI.MASTER, baudrate=328125, polarity=0, phase=1, bits=8)
-        self.wr(LIS302DL_CTRL_REG1_ADDR, bytearray([LIS302DL_CONF]))
 
-    def rd(self, addr, nbytes):
+        self.who_am_i = self.read_id()
+
+        if self.who_am_i == LIS302DL_WHO_AM_I_VAL:
+            self.write_bytes(LIS302DL_CTRL_REG1_ADDR, bytearray([LIS302DL_CONF]))
+            self.sensitivity = 18
+        elif self.who_am_i == LIS3DSH_WHO_AM_I_VAL:
+            self.write_bytes(LIS3DSH_CTRL_REG4_ADDR, bytearray([LIS3DSH_CTRL_REG4_CONF]))
+            self.write_bytes(LIS3DSH_CTRL_REG5_ADDR, bytearray([LIS3DSH_CTRL_REG5_CONF]))
+            self.sensitivity = 0.06 * 256
+        else:
+            raise Exception('LIS302DL or LIS3DSH accelerometer not present')
+
+    def convert_raw_to_g(self, x):
+        if x & 0x80:
+            x = x - 256
+        return x * self.sensitivity / 1000
+
+    def read_bytes(self, addr, nbytes):
         if nbytes > 1:
             addr |= READWRITE_CMD | MULTIPLEBYTE_CMD
         else:
             addr |= READWRITE_CMD
         self.cs_pin.low()
         self.spi.send(addr)
-        buf = self.spi.send_recv(bytearray(nbytes * [0])) # read data, MSB first
+        #buf = self.spi.send_recv(bytearray(nbytes * [0])) # read data, MSB first
+        buf = self.spi.recv(nbytes)
         self.cs_pin.high()
         return buf
 
-    def wr(self, addr, buf):
+    def write_bytes(self, addr, buf):
         if len(buf) > 1:
             addr |= MULTIPLEBYTE_CMD
         self.cs_pin.low()
@@ -60,11 +82,16 @@ class STAccel:
         self.cs_pin.high()
 
     def read_id(self):
-        return self.rd(LIS302DL_WHO_AM_I_ADDR, 1)
+        return self.read_bytes(WHO_AM_I_ADDR, 1)[0]
 
-    def get_xyz(self):
-        val = self.rd(LIS302DL_OUT_X, 5)
-        x = signed8(val[0]) * 18.0 / 1000
-        y = signed8(val[2]) * 18.0 / 1000
-        z = signed8(val[4]) * 18.0 / 1000
-        return [x, y, z]
+    def x(self):
+        return self.convert_raw_to_g(self.read_bytes(OUT_X_ADDR, 1)[0])
+
+    def y(self):
+        return self.convert_raw_to_g(self.read_bytes(OUT_Y_ADDR, 1)[0])
+
+    def z(self):
+        return self.convert_raw_to_g(self.read_bytes(OUT_Z_ADDR, 1)[0])
+
+    def xyz(self):
+        return (self.x(), self.y(), self.z())

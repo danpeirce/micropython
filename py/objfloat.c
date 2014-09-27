@@ -48,25 +48,25 @@
 STATIC void float_print(void (*print)(void *env, const char *fmt, ...), void *env, mp_obj_t o_in, mp_print_kind_t kind) {
     mp_obj_float_t *o = o_in;
 #if MICROPY_FLOAT_IMPL == MICROPY_FLOAT_IMPL_FLOAT
-    char buf[32];
-    format_float(o->value, buf, sizeof(buf), 'g', 6, '\0');
+    char buf[16];
+    format_float(o->value, buf, sizeof(buf), 'g', 7, '\0');
     print(env, "%s", buf);
-    if (strchr(buf, '.') == NULL) {
+    if (strchr(buf, '.') == NULL && strchr(buf, 'e') == NULL) {
         // Python floats always have decimal point
         print(env, ".0");
     }
 #else
     char buf[32];
-    sprintf(buf, "%.17g", (double) o->value);
+    sprintf(buf, "%.16g", (double) o->value);
     print(env, buf);
-    if (strchr(buf, '.') == NULL) {
+    if (strchr(buf, '.') == NULL && strchr(buf, 'e') == NULL) {
         // Python floats always have decimal point
         print(env, ".0");
     }
 #endif
 }
 
-STATIC mp_obj_t float_make_new(mp_obj_t type_in, uint n_args, uint n_kw, const mp_obj_t *args) {
+STATIC mp_obj_t float_make_new(mp_obj_t type_in, mp_uint_t n_args, mp_uint_t n_kw, const mp_obj_t *args) {
     mp_arg_check_num(n_args, n_kw, 0, 1, false);
 
     switch (n_args) {
@@ -77,7 +77,7 @@ STATIC mp_obj_t float_make_new(mp_obj_t type_in, uint n_args, uint n_kw, const m
         default:
             if (MP_OBJ_IS_STR(args[0])) {
                 // a string, parse it
-                uint l;
+                mp_uint_t l;
                 const char *s = mp_obj_str_get_data(args[0], &l);
                 return mp_parse_num_decimal(s, l, false, false);
             } else if (MP_OBJ_IS_TYPE(args[0], &mp_type_float)) {
@@ -90,7 +90,7 @@ STATIC mp_obj_t float_make_new(mp_obj_t type_in, uint n_args, uint n_kw, const m
     }
 }
 
-STATIC mp_obj_t float_unary_op(int op, mp_obj_t o_in) {
+STATIC mp_obj_t float_unary_op(mp_uint_t op, mp_obj_t o_in) {
     mp_obj_float_t *o = o_in;
     switch (op) {
         case MP_UNARY_OP_BOOL: return MP_BOOL(o->value != 0);
@@ -100,7 +100,7 @@ STATIC mp_obj_t float_unary_op(int op, mp_obj_t o_in) {
     }
 }
 
-STATIC mp_obj_t float_binary_op(int op, mp_obj_t lhs_in, mp_obj_t rhs_in) {
+STATIC mp_obj_t float_binary_op(mp_uint_t op, mp_obj_t lhs_in, mp_obj_t rhs_in) {
     mp_obj_float_t *lhs = lhs_in;
 #if MICROPY_PY_BUILTINS_COMPLEX
     if (MP_OBJ_IS_TYPE(rhs_in, &mp_type_complex)) {
@@ -134,7 +134,7 @@ mp_float_t mp_obj_float_get(mp_obj_t self_in) {
     return self->value;
 }
 
-mp_obj_t mp_obj_float_binary_op(int op, mp_float_t lhs_val, mp_obj_t rhs_in) {
+mp_obj_t mp_obj_float_binary_op(mp_uint_t op, mp_float_t lhs_val, mp_obj_t rhs_in) {
     mp_float_t rhs_val = mp_obj_get_float(rhs_in); // can be any type, this function will convert to float (if possible)
     switch (op) {
         case MP_BINARY_OP_ADD:
@@ -143,14 +143,16 @@ mp_obj_t mp_obj_float_binary_op(int op, mp_float_t lhs_val, mp_obj_t rhs_in) {
         case MP_BINARY_OP_INPLACE_SUBTRACT: lhs_val -= rhs_val; break;
         case MP_BINARY_OP_MULTIPLY:
         case MP_BINARY_OP_INPLACE_MULTIPLY: lhs_val *= rhs_val; break;
-        // TODO: verify that C floor matches Python semantics
         case MP_BINARY_OP_FLOOR_DIVIDE:
         case MP_BINARY_OP_INPLACE_FLOOR_DIVIDE:
             if (rhs_val == 0) {
                 zero_division_error:
-                nlr_raise(mp_obj_new_exception_msg(&mp_type_ZeroDivisionError, "float division by zero"));
+                nlr_raise(mp_obj_new_exception_msg(&mp_type_ZeroDivisionError, "division by zero"));
             }
-            lhs_val = MICROPY_FLOAT_C_FUN(floor)(lhs_val / rhs_val);
+            // Python specs require that x == (x//y)*y + (x%y) so we must
+            // call divmod to compute the correct floor division, which
+            // returns the floor divide in lhs_val.
+            mp_obj_float_divmod(&lhs_val, &rhs_val);
             break;
         case MP_BINARY_OP_TRUE_DIVIDE:
         case MP_BINARY_OP_INPLACE_TRUE_DIVIDE:
@@ -158,6 +160,21 @@ mp_obj_t mp_obj_float_binary_op(int op, mp_float_t lhs_val, mp_obj_t rhs_in) {
                 goto zero_division_error;
             }
             lhs_val /= rhs_val;
+            break;
+        case MP_BINARY_OP_MODULO:
+        case MP_BINARY_OP_INPLACE_MODULO:
+            if (rhs_val == 0) {
+                goto zero_division_error;
+            }
+            lhs_val = MICROPY_FLOAT_C_FUN(fmod)(lhs_val, rhs_val);
+            // Python specs require that mod has same sign as second operand
+            if (lhs_val == 0.0) {
+                lhs_val = MICROPY_FLOAT_C_FUN(copysign)(0.0, rhs_val);
+            } else {
+                if ((lhs_val < 0.0) != (rhs_val < 0.0)) {
+                    lhs_val += rhs_val;
+                }
+            }
             break;
         case MP_BINARY_OP_POWER:
         case MP_BINARY_OP_INPLACE_POWER: lhs_val = MICROPY_FLOAT_C_FUN(pow)(lhs_val, rhs_val); break;
@@ -171,6 +188,41 @@ mp_obj_t mp_obj_float_binary_op(int op, mp_float_t lhs_val, mp_obj_t rhs_in) {
             return MP_OBJ_NULL; // op not supported
     }
     return mp_obj_new_float(lhs_val);
+}
+
+void mp_obj_float_divmod(mp_float_t *x, mp_float_t *y) {
+    // logic here follows that of CPython
+    // https://docs.python.org/3/reference/expressions.html#binary-arithmetic-operations
+    // x == (x//y)*y + (x%y)
+    // divmod(x, y) == (x//y, x%y)
+    mp_float_t mod = MICROPY_FLOAT_C_FUN(fmod)(*x, *y);
+    mp_float_t div = (*x - mod) / *y;
+
+    // Python specs require that mod has same sign as second operand
+    if (mod == 0.0) {
+        mod = MICROPY_FLOAT_C_FUN(copysign)(0.0, *y);
+    } else {
+        if ((mod < 0.0) != (*y < 0.0)) {
+            mod += *y;
+            div -= 1.0;
+        }
+    }
+
+    mp_float_t floordiv;
+    if (div == 0.0) {
+        // if division is zero, take the correct sign of zero
+        floordiv = MICROPY_FLOAT_C_FUN(copysign)(0.0, *x / *y);
+    } else {
+        // Python specs require that x == (x//y)*y + (x%y)
+        floordiv = MICROPY_FLOAT_C_FUN(floor)(div);
+        if (div - floordiv > 0.5) {
+            floordiv += 1.0;
+        }
+    }
+
+    // return results
+    *x = floordiv;
+    *y = mod;
 }
 
 #endif // MICROPY_PY_BUILTINS_FLOAT

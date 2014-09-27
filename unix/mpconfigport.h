@@ -27,8 +27,11 @@
 // options to control how Micro Python is built
 
 #define MICROPY_ALLOC_PATH_MAX      (PATH_MAX)
-#ifndef MICROPY_EMIT_X64
-#define MICROPY_EMIT_X64            (1)
+#if !defined(MICROPY_EMIT_X64) && defined(__x86_64__)
+    #define MICROPY_EMIT_X64        (1)
+#endif
+#if !defined(MICROPY_EMIT_X86) && defined(__i386__)
+    #define MICROPY_EMIT_X86        (1)
 #endif
 #define MICROPY_EMIT_THUMB          (0)
 #define MICROPY_EMIT_INLINE_THUMB   (0)
@@ -55,6 +58,7 @@
 
 #define MICROPY_PY_UCTYPES          (1)
 #define MICROPY_PY_ZLIBD            (1)
+#define MICROPY_PY_UJSON            (1)
 
 // Define to MICROPY_ERROR_REPORTING_DETAILED to get function, etc.
 // names in exception messages (may require more RAM).
@@ -62,7 +66,11 @@
 // Define to 1 to use untested inefficient GC helper implementation
 // (if more efficient arch-specific one is not available).
 #ifndef MICROPY_GCREGS_SETJMP
-#define MICROPY_GCREGS_SETJMP       (0)
+    #ifdef __mips__
+        #define MICROPY_GCREGS_SETJMP (1)
+    #else
+        #define MICROPY_GCREGS_SETJMP (0)
+    #endif
 #endif
 
 #define MICROPY_ENABLE_EMERGENCY_EXCEPTION_BUF   (1)
@@ -70,6 +78,7 @@
 
 extern const struct _mp_obj_module_t mp_module_os;
 extern const struct _mp_obj_module_t mp_module_time;
+extern const struct _mp_obj_module_t mp_module_termios;
 extern const struct _mp_obj_module_t mp_module_socket;
 extern const struct _mp_obj_module_t mp_module_ffi;
 
@@ -83,12 +92,18 @@ extern const struct _mp_obj_module_t mp_module_ffi;
 #else
 #define MICROPY_PY_TIME_DEF
 #endif
+#if MICROPY_PY_TERMIOS
+#define MICROPY_PY_TERMIOS_DEF { MP_OBJ_NEW_QSTR(MP_QSTR_termios), (mp_obj_t)&mp_module_termios },
+#else
+#define MICROPY_PY_TERMIOS_DEF
+#endif
 
 #define MICROPY_PORT_BUILTIN_MODULES \
     MICROPY_PY_FFI_DEF \
     MICROPY_PY_TIME_DEF \
     { MP_OBJ_NEW_QSTR(MP_QSTR_microsocket), (mp_obj_t)&mp_module_socket }, \
     { MP_OBJ_NEW_QSTR(MP_QSTR__os), (mp_obj_t)&mp_module_os }, \
+    MICROPY_PY_TERMIOS_DEF \
 
 // type definitions for the specific machine
 
@@ -107,8 +122,13 @@ typedef unsigned int mp_uint_t; // must be pointer size
 typedef void *machine_ptr_t; // must be of pointer size
 typedef const void *machine_const_ptr_t; // must be of pointer size
 
-extern const struct _mp_obj_fun_native_t mp_builtin_input_obj;
-extern const struct _mp_obj_fun_native_t mp_builtin_open_obj;
+void mp_unix_alloc_exec(mp_uint_t min_size, void** ptr, mp_uint_t *size);
+void mp_unix_free_exec(void *ptr, mp_uint_t size);
+#define MP_PLAT_ALLOC_EXEC(min_size, ptr, size) mp_unix_alloc_exec(min_size, ptr, size)
+#define MP_PLAT_FREE_EXEC(ptr, size) mp_unix_free_exec(ptr, size)
+
+extern const struct _mp_obj_fun_builtin_t mp_builtin_input_obj;
+extern const struct _mp_obj_fun_builtin_t mp_builtin_open_obj;
 #define MICROPY_PORT_BUILTINS \
     { MP_OBJ_NEW_QSTR(MP_QSTR_input), (mp_obj_t)&mp_builtin_input_obj }, \
     { MP_OBJ_NEW_QSTR(MP_QSTR_open), (mp_obj_t)&mp_builtin_open_obj },

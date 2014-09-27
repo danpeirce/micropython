@@ -33,6 +33,8 @@ typedef struct _mp_obj_int_t {
 #endif
 } mp_obj_int_t;
 
+extern const mp_obj_int_t mp_maxsize_obj;
+
 void mp_obj_int_print(void (*print)(void *env, const char *fmt, ...), void *env, mp_obj_t self_in, mp_print_kind_t kind);
 char *mp_obj_int_formatted(char **buf, int *buf_size, int *fmt_size, mp_const_obj_t self_in,
                            int base, const char *prefix, char base_char, char comma);
@@ -40,6 +42,6 @@ char *mp_obj_int_formatted_impl(char **buf, int *buf_size, int *fmt_size, mp_con
                                 int base, const char *prefix, char base_char, char comma);
 mp_int_t mp_obj_int_hash(mp_obj_t self_in);
 bool mp_obj_int_is_positive(mp_obj_t self_in);
-mp_obj_t mp_obj_int_unary_op(int op, mp_obj_t o_in);
-mp_obj_t mp_obj_int_binary_op(int op, mp_obj_t lhs_in, mp_obj_t rhs_in);
-mp_obj_t mp_obj_int_binary_op_extra_cases(int op, mp_obj_t lhs_in, mp_obj_t rhs_in);
+mp_obj_t mp_obj_int_unary_op(mp_uint_t op, mp_obj_t o_in);
+mp_obj_t mp_obj_int_binary_op(mp_uint_t op, mp_obj_t lhs_in, mp_obj_t rhs_in);
+mp_obj_t mp_obj_int_binary_op_extra_cases(mp_uint_t op, mp_obj_t lhs_in, mp_obj_t rhs_in);

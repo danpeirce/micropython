@@ -34,6 +34,7 @@
 #include "misc.h"
 #include "qstr.h"
 #include "obj.h"
+#include "smallint.h"
 #include "binary.h"
 
 // Helpers to work with binary-encoded data
@@ -42,7 +43,7 @@
 #define alignof(type) offsetof(struct { char c; type t; }, t)
 #endif
 
-int mp_binary_get_size(char struct_type, char val_type, uint *palign) {
+int mp_binary_get_size(char struct_type, char val_type, mp_uint_t *palign) {
     int size = 0;
     int align = 1;
     switch (struct_type) {
@@ -58,6 +59,8 @@ int mp_binary_get_size(char struct_type, char val_type, uint *palign) {
                     size = 4; break;
                 case 'q': case 'Q':
                     size = 8; break;
+                case 'P': case 'O': case 'S':
+                    size = sizeof(void*); break;
             }
             break;
         case '@': {
@@ -134,7 +137,10 @@ mp_obj_t mp_binary_get_val_array(char typecode, void *p, int index) {
     return MP_OBJ_NEW_SMALL_INT(val);
 }
 
-mp_int_t mp_binary_get_int(uint size, bool is_signed, bool big_endian, byte *p) {
+// The long long type is guaranteed to hold at least 64 bits, and size is at
+// most 8 (for q and Q), so we will always be able to parse the given data
+// and fit it into a long long.
+long long mp_binary_get_int(mp_uint_t size, bool is_signed, bool big_endian, byte *p) {
     int delta;
     if (!big_endian) {
         delta = -1;
@@ -143,7 +149,7 @@ mp_int_t mp_binary_get_int(uint size, bool is_signed, bool big_endian, byte *p) 
         delta = 1;
     }
 
-    mp_int_t val = 0;
+    long long val = 0;
     if (is_signed && *p & 0x80) {
         val = -1;
     }
@@ -159,7 +165,7 @@ mp_int_t mp_binary_get_int(uint size, bool is_signed, bool big_endian, byte *p) 
 #define is_signed(typecode) (typecode > 'Z')
 mp_obj_t mp_binary_get_val(char struct_type, char val_type, byte **ptr) {
     byte *p = *ptr;
-    uint align;
+    mp_uint_t align;
 
     int size = mp_binary_get_size(struct_type, val_type, &align);
     if (struct_type == '@') {
@@ -173,20 +179,29 @@ mp_obj_t mp_binary_get_val(char struct_type, char val_type, byte **ptr) {
     }
     *ptr = p + size;
 
-    mp_int_t val = mp_binary_get_int(size, is_signed(val_type), (struct_type == '>'), p);
+    long long val = mp_binary_get_int(size, is_signed(val_type), (struct_type == '>'), p);
 
     if (val_type == 'O') {
-        return (mp_obj_t)val;
+        return (mp_obj_t)(mp_uint_t)val;
     } else if (val_type == 'S') {
-        return mp_obj_new_str((char*)val, strlen((char*)val), false);
+        const char *s_val = (const char*)(mp_uint_t)val;
+        return mp_obj_new_str(s_val, strlen(s_val), false);
     } else if (is_signed(val_type)) {
-        return mp_obj_new_int(val);
+        if ((long long)MP_SMALL_INT_MIN <= val && val <= (long long)MP_SMALL_INT_MAX) {
+            return mp_obj_new_int((mp_int_t)val);
+        } else {
+            return mp_obj_new_int_from_ll(val);
+        }
     } else {
-        return mp_obj_new_int_from_uint(val);
+        if ((unsigned long long)val <= (unsigned long long)MP_SMALL_INT_MAX) {
+            return mp_obj_new_int_from_uint((mp_uint_t)val);
+        } else {
+            return mp_obj_new_int_from_ull(val);
+        }
     }
 }
 
-void mp_binary_set_int(uint val_sz, bool big_endian, byte *p, byte *val_ptr) {
+void mp_binary_set_int(mp_uint_t val_sz, bool big_endian, byte *p, byte *val_ptr) {
     int in_delta, out_delta;
     if (big_endian) {
         in_delta = -1;
@@ -205,7 +220,7 @@ void mp_binary_set_int(uint val_sz, bool big_endian, byte *p, byte *val_ptr) {
 
 void mp_binary_set_val(char struct_type, char val_type, mp_obj_t val_in, byte **ptr) {
     byte *p = *ptr;
-    uint align;
+    mp_uint_t align;
 
     int size = mp_binary_get_size(struct_type, val_type, &align);
     if (struct_type == '@') {

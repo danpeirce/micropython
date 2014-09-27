@@ -1,14 +1,14 @@
+#include <mk20dx128.h>
+#include "hal_ftm.h"
 
 #ifdef  USE_FULL_ASSERT
   #define assert_param(expr) ((expr) ? (void)0 : assert_failed((uint8_t *)__FILE__, __LINE__))
   void assert_failed(uint8_t* file, uint32_t line);
 #else
   #define assert_param(expr) ((void)0)
-#endif /* USE_FULL_ASSERT */    
+#endif /* USE_FULL_ASSERT */
 
-#define FTM0    ((FTM_TypeDef *)&FTM0_SC)
-#define FTM1    ((FTM_TypeDef *)&FTM1_SC)
-#define FTM2    ((FTM_TypeDef *)&FTM2_SC)
+#define HAL_NVIC_EnableIRQ(irq)    NVIC_ENABLE_IRQ(irq)
 
 #define GPIOA   ((GPIO_TypeDef *)&GPIOA_PDOR)
 #define GPIOB   ((GPIO_TypeDef *)&GPIOB_PDOR)
@@ -27,10 +27,6 @@
 #define UART0   ((UART_TypeDef *)&UART0_BDH)
 #define UART1   ((UART_TypeDef *)&UART1_BDH)
 #define UART2   ((UART_TypeDef *)&UART2_BDH)
-
-typedef struct {
-    uint32_t dummy;
-} FTM_TypeDef;
 
 typedef struct {
     uint32_t dummy;
@@ -92,10 +88,10 @@ typedef struct {
 } GPIO_InitTypeDef;
 
 #define GPIO_PORT_TO_PORT_NUM(GPIOx) \
-    ((GPIOx->PDOR - GPIOA_PDOR) / (GPIOB_PDOR - GPIOA_PDOR))
+    ((&GPIOx->PDOR - &GPIOA_PDOR) / (&GPIOB_PDOR - &GPIOA_PDOR))
 
 #define GPIO_PIN_TO_PORT_PCR(GPIOx, pin) \
-    (&PORTA_PCR0 + GPIO_PORT_TO_PORT_NUM(GPIOx) * 32 + (pin))
+    (&PORTA_PCR0 + (GPIO_PORT_TO_PORT_NUM(GPIOx) * 0x400) + (pin))
 
 #define GPIO_AF2_I2C0   2
 #define GPIO_AF2_I2C1   2
@@ -112,9 +108,7 @@ typedef struct {
 #define GPIO_AF6_I2C1   6
 #define GPIO_AF7_FTM1   7
 
-
-__attribute__(( always_inline )) static inline void __WFI(void)
-{
+__attribute__(( always_inline )) static inline void __WFI(void) {
   __asm volatile ("wfi");
 }
 

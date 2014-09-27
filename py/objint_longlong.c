@@ -52,7 +52,7 @@
 
 #if MICROPY_PY_SYS_MAXSIZE
 // Export value for sys.maxsize
-const mp_obj_int_t mp_maxsize_obj = {{&mp_type_int}, INT_MAX};
+const mp_obj_int_t mp_maxsize_obj = {{&mp_type_int}, MP_SSIZE_MAX};
 #endif
 
 mp_int_t mp_obj_int_hash(mp_obj_t self_in) {
@@ -73,7 +73,7 @@ bool mp_obj_int_is_positive(mp_obj_t self_in) {
     return self->val >= 0;
 }
 
-mp_obj_t mp_obj_int_unary_op(int op, mp_obj_t o_in) {
+mp_obj_t mp_obj_int_unary_op(mp_uint_t op, mp_obj_t o_in) {
     mp_obj_int_t *o = o_in;
     switch (op) {
         case MP_UNARY_OP_BOOL: return MP_BOOL(o->val != 0);
@@ -84,7 +84,7 @@ mp_obj_t mp_obj_int_unary_op(int op, mp_obj_t o_in) {
     }
 }
 
-mp_obj_t mp_obj_int_binary_op(int op, mp_obj_t lhs_in, mp_obj_t rhs_in) {
+mp_obj_t mp_obj_int_binary_op(mp_uint_t op, mp_obj_t lhs_in, mp_obj_t rhs_in) {
     long long lhs_val;
     long long rhs_val;
 
@@ -178,7 +178,16 @@ mp_obj_t mp_obj_new_int_from_ll(long long val) {
     return o;
 }
 
-mp_obj_t mp_obj_new_int_from_str_len(const char **str, uint len, bool neg, uint base) {
+mp_obj_t mp_obj_new_int_from_ull(unsigned long long val) {
+    // TODO raise an exception if the unsigned long long won't fit
+    assert(val >> (sizeof(unsigned long long) * 8 - 1) == 0);
+    mp_obj_int_t *o = m_new_obj(mp_obj_int_t);
+    o->base.type = &mp_type_int;
+    o->val = val;
+    return o;
+}
+
+mp_obj_t mp_obj_new_int_from_str_len(const char **str, mp_uint_t len, bool neg, mp_uint_t base) {
     // TODO this does not honor the given length of the string, but it all cases it should anyway be null terminated
     // TODO check overflow
     mp_obj_int_t *o = m_new_obj(mp_obj_int_t);

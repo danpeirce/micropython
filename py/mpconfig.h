@@ -101,6 +101,11 @@
 #define MICROPY_EMIT_X64 (0)
 #endif
 
+// Whether to emit x86 native code
+#ifndef MICROPY_EMIT_X86
+#define MICROPY_EMIT_X86 (0)
+#endif
+
 // Whether to emit thumb native code
 #ifndef MICROPY_EMIT_THUMB
 #define MICROPY_EMIT_THUMB (0)
@@ -111,8 +116,13 @@
 #define MICROPY_EMIT_INLINE_THUMB (0)
 #endif
 
+// Whether to emit ARM native code
+#ifndef MICROPY_EMIT_ARM
+#define MICROPY_EMIT_ARM (0)
+#endif
+
 // Convenience definition for whether any native emitter is enabled
-#define MICROPY_EMIT_NATIVE (MICROPY_EMIT_X64 || MICROPY_EMIT_THUMB)
+#define MICROPY_EMIT_NATIVE (MICROPY_EMIT_X64 || MICROPY_EMIT_X86 || MICROPY_EMIT_THUMB || MICROPY_EMIT_ARM)
 
 /*****************************************************************************/
 /* Compiler configuration                                                    */
@@ -380,6 +390,10 @@ typedef double mp_float_t;
 #define MICROPY_PY_ZLIBD (0)
 #endif
 
+#ifndef MICROPY_PY_UJSON
+#define MICROPY_PY_UJSON (0)
+#endif
+
 /*****************************************************************************/
 /* Hooks for a port to add builtins                                          */
 
@@ -427,6 +441,24 @@ typedef double mp_float_t;
 // Ensure we don't accidentally set both endiannesses
 #if MP_ENDIANNESS_BIG
 #define MP_ENDIANNESS_LITTLE (0)
+#endif
+
+// Make a pointer to RAM callable (eg set lower bit for Thumb code)
+// (This scheme won't work if we want to mix Thumb and normal ARM code.)
+#ifndef MICROPY_MAKE_POINTER_CALLABLE
+#define MICROPY_MAKE_POINTER_CALLABLE(p) (p)
+#endif
+
+#ifndef MP_PLAT_ALLOC_EXEC
+#define MP_PLAT_ALLOC_EXEC(min_size, ptr, size) do { *ptr = m_new(byte, min_size); *size = min_size; } while(0)
+#endif
+
+#ifndef MP_PLAT_FREE_EXEC
+#define MP_PLAT_FREE_EXEC(ptr, size) m_del(byte, ptr, size)
+#endif
+
+#ifndef MP_SSIZE_MAX
+#define MP_SSIZE_MAX SSIZE_MAX
 #endif
 
 // printf format spec to use for mp_int_t and friends

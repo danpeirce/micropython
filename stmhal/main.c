@@ -119,14 +119,6 @@ void MP_WEAK __assert_func(const char *file, int line, const char *func, const c
 }
 #endif
 
-void enable_irq(void) {
-    __enable_irq();
-}
-
-void disable_irq(void) {
-    __disable_irq();
-}
-
 STATIC mp_obj_t pyb_config_main = MP_OBJ_NULL;
 STATIC mp_obj_t pyb_config_usb_mode = MP_OBJ_NULL;
 
@@ -182,9 +174,9 @@ static const char fresh_readme_txt[] =
 int main(void) {
     // TODO disable JTAG
 
-    // Stack limit should be less than real stack size, so we
-    // had chance to recover from limit hit.
-    mp_stack_set_limit(&_ram_end - &_heap_end - 512);
+    // Stack limit should be less than real stack size, so we have a chance
+    // to recover from limit hit.  (Limit is measured in bytes.)
+    mp_stack_set_limit((char*)&_ram_end - (char*)&_heap_end - 1024);
 
     /* STM32F4xx HAL library initialization:
          - Configure the Flash prefetch, instruction and Data caches
@@ -558,16 +550,3 @@ soft_reset:
     first_soft_reset = false;
     goto soft_reset;
 }
-
-/// \moduleref sys
-/// \function exit([retval])
-/// Raise a `SystemExit` exception.  If an argument is given, it is the
-/// value given to `SystemExit`.
-STATIC NORETURN mp_obj_t mp_sys_exit(uint n_args, const mp_obj_t *args) {
-    int rc = 0;
-    if (n_args > 0) {
-        rc = mp_obj_get_int(args[0]);
-    }
-    nlr_raise(mp_obj_new_exception_arg1(&mp_type_SystemExit, mp_obj_new_int(rc)));
-}
-MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(mp_sys_exit_obj, 0, 1, mp_sys_exit);

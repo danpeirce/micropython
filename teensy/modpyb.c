@@ -38,11 +38,12 @@
 #include "obj.h"
 #include "gc.h"
 #include "gccollect.h"
+#include "irq.h"
 #include "systick.h"
 #include "pyexec.h"
 #include "led.h"
 #include "pin.h"
-//#include "timer.h"
+#include "timer.h"
 #include "extint.h"
 #include "usrsw.h"
 #include "rng.h"
@@ -181,45 +182,17 @@ STATIC mp_obj_t pyb_udelay(mp_obj_t usec_in) {
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_1(pyb_udelay_obj, pyb_udelay);
 
-/// \function wfi()
-/// Wait for an interrupt.
-/// This executies a `wfi` instruction which reduces power consumption
-/// of the MCU until an interrupt occurs, at which point execution continues.
-STATIC mp_obj_t pyb_wfi(void) {
-    __WFI();
-    return mp_const_none;
-}
-MP_DEFINE_CONST_FUN_OBJ_0(pyb_wfi_obj, pyb_wfi);
-
-/// \function disable_irq()
-/// Disable interrupt requests.
-STATIC mp_obj_t pyb_disable_irq(void) {
-    __disable_irq();
-    return mp_const_none;
-}
-MP_DEFINE_CONST_FUN_OBJ_0(pyb_disable_irq_obj, pyb_disable_irq);
-
-/// \function enable_irq()
-/// Enable interrupt requests.
-STATIC mp_obj_t pyb_enable_irq(void) {
-    __enable_irq();
-    return mp_const_none;
-}
-MP_DEFINE_CONST_FUN_OBJ_0(pyb_enable_irq_obj, pyb_enable_irq);
-
 STATIC mp_obj_t pyb_stop(void) {
     printf("stop not currently implemented\n");
     return mp_const_none;
 }
-
-MP_DEFINE_CONST_FUN_OBJ_0(pyb_stop_obj, pyb_stop);
+STATIC MP_DEFINE_CONST_FUN_OBJ_0(pyb_stop_obj, pyb_stop);
 
 STATIC mp_obj_t pyb_standby(void) {
     printf("standby not currently implemented\n");
     return mp_const_none;
 }
-
-MP_DEFINE_CONST_FUN_OBJ_0(pyb_standby_obj, pyb_standby);
+STATIC MP_DEFINE_CONST_FUN_OBJ_0(pyb_standby_obj, pyb_standby);
 
 /// \function have_cdc()
 /// Return True if USB is connected as a serial device, False otherwise.
@@ -279,7 +252,7 @@ STATIC const mp_map_elem_t pyb_module_globals_table[] = {
     { MP_OBJ_NEW_QSTR(MP_QSTR_udelay), (mp_obj_t)&pyb_udelay_obj },
     { MP_OBJ_NEW_QSTR(MP_QSTR_sync), (mp_obj_t)&pyb_sync_obj },
 
-//    { MP_OBJ_NEW_QSTR(MP_QSTR_Timer), (mp_obj_t)&pyb_timer_type },
+    { MP_OBJ_NEW_QSTR(MP_QSTR_Timer), (mp_obj_t)&pyb_timer_type },
 
 //#if MICROPY_HW_ENABLE_RNG
 //    { MP_OBJ_NEW_QSTR(MP_QSTR_rng), (mp_obj_t)&pyb_rng_get_obj },

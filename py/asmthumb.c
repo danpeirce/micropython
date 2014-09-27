@@ -67,7 +67,7 @@ asm_thumb_t *asm_thumb_new(uint max_num_labels) {
 
 void asm_thumb_free(asm_thumb_t *as, bool free_code) {
     if (free_code) {
-        m_del(byte, as->code_base, as->code_size);
+        MP_PLAT_FREE_EXEC(as->code_base, as->code_size);
     }
     /*
     if (as->label != NULL) {
@@ -94,9 +94,10 @@ void asm_thumb_start_pass(asm_thumb_t *as, uint pass) {
 
 void asm_thumb_end_pass(asm_thumb_t *as) {
     if (as->pass == ASM_THUMB_PASS_COMPUTE) {
-        // calculate size of code in bytes
-        as->code_size = as->code_offset;
-        as->code_base = m_new(byte, as->code_size);
+        MP_PLAT_ALLOC_EXEC(as->code_offset, (void**) &as->code_base, &as->code_size);
+        if(as->code_base == NULL) {
+            assert(0);
+        }
         //printf("code_size: %u\n", as->code_size);
     }
 
@@ -132,8 +133,7 @@ uint asm_thumb_get_code_size(asm_thumb_t *as) {
 }
 
 void *asm_thumb_get_code(asm_thumb_t *as) {
-    // need to set low bit to indicate that it's thumb code
-    return (void *)(((mp_uint_t)as->code_base) | 1);
+    return as->code_base;
 }
 
 /*

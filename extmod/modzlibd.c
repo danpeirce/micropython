@@ -53,7 +53,7 @@ STATIC mp_obj_t mod_zlibd_decompress(uint n_args, mp_obj_t *args) {
     mp_get_buffer_raise(data, &bufinfo, MP_BUFFER_READ);
     tinfl_decompressor *decomp = m_new_obj(tinfl_decompressor);
     tinfl_init(decomp);
-    DEBUG_printf("sizeof(tinfl_decompressor)=%d\n", sizeof(tinfl_decompressor));
+    DEBUG_printf("sizeof(tinfl_decompressor)=" UINT_FMT "\n", sizeof(tinfl_decompressor));
 
     byte *out = m_new(byte, bufinfo.len);
     size_t out_len = bufinfo.len;
@@ -64,7 +64,7 @@ STATIC mp_obj_t mod_zlibd_decompress(uint n_args, mp_obj_t *args) {
         size_t in_buf_sz = bufinfo.len - in_buf_ofs;
         DEBUG_printf("tinfl in: in_ofs=%d in_sz=%d dst_ofs=%d, dst_sz=%d\n", in_buf_ofs, in_buf_sz, dst_buf_ofs, dst_buf_sz);
         tinfl_status st = tinfl_decompress(decomp,
-            bufinfo.buf + in_buf_ofs, &in_buf_sz,
+            (mz_uint8*) bufinfo.buf + in_buf_ofs, &in_buf_sz,
             out, out + dst_buf_ofs, &dst_buf_sz,
             TINFL_FLAG_USING_NON_WRAPPING_OUTPUT_BUF | TINFL_FLAG_PARSE_ZLIB_HEADER);
         DEBUG_printf("tinfl out: st=%d, in_sz=%d, out_sz=%d\n", st, in_buf_sz, dst_buf_sz);

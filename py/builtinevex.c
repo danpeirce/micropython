@@ -41,7 +41,7 @@
 #include "builtin.h"
 
 STATIC mp_obj_t parse_compile_execute(mp_obj_t o_in, mp_parse_input_kind_t parse_input_kind) {
-    uint str_len;
+    mp_uint_t str_len;
     const char *str = mp_obj_str_get_data(o_in, &str_len);
 
     // create the lexer
@@ -63,7 +63,6 @@ STATIC mp_obj_t parse_compile_execute(mp_obj_t o_in, mp_parse_input_kind_t parse
 
     // compile the string
     mp_obj_t module_fun = mp_compile(pn, source_name, MP_EMIT_OPT_NONE, false);
-    mp_parse_node_free(pn);
 
     if (module_fun == mp_const_none) {
         // TODO handle compile error correctly

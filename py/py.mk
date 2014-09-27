@@ -35,14 +35,19 @@ PY_O_BASENAME = \
 	emitbc.o \
 	asmx64.o \
 	emitnx64.o \
+	asmx86.o \
+	emitnx86.o \
 	asmthumb.o \
 	emitnthumb.o \
 	emitinlinethumb.o \
+	asmarm.o \
+	emitnarm.o \
 	formatfloat.o \
 	parsenumbase.o \
 	parsenum.o \
 	emitglue.o \
 	runtime.o \
+	nativeglue.o \
 	stackctrl.o \
 	argcheck.o \
 	map.o \
@@ -99,6 +104,7 @@ PY_O_BASENAME = \
 	modstruct.o \
 	modsys.o \
 	vm.o \
+	bc.o \
 	showbc.o \
 	repl.o \
 	smallint.o \
@@ -106,6 +112,7 @@ PY_O_BASENAME = \
 	pfenv_printf.o \
 	../extmod/moductypes.o \
 	../extmod/modzlibd.o \
+	../extmod/modujson.o \
 
 # prepend the build destination prefix to the py object files
 PY_O = $(addprefix $(PY_BUILD)/, $(PY_O_BASENAME))
@@ -141,8 +148,16 @@ $(PY_BUILD)/emitnx64.o: CFLAGS += -DN_X64
 $(PY_BUILD)/emitnx64.o: py/emitnative.c
 	$(call compile_c)
 
+$(PY_BUILD)/emitnx86.o: CFLAGS += -DN_X86
+$(PY_BUILD)/emitnx86.o: py/emitnative.c
+	$(call compile_c)
+
 $(PY_BUILD)/emitnthumb.o: CFLAGS += -DN_THUMB
 $(PY_BUILD)/emitnthumb.o: py/emitnative.c
+	$(call compile_c)
+
+$(PY_BUILD)/emitnarm.o: CFLAGS += -DN_ARM
+$(PY_BUILD)/emitnarm.o: py/emitnative.c
 	$(call compile_c)
 
 # optimising gc for speed; 5ms down to 4ms on pybv2

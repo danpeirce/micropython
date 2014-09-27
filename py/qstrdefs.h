@@ -64,12 +64,16 @@ Q(__getattr__)
 Q(__del__)
 Q(__call__)
 Q(__lt__)
+Q(__gt__)
+Q(__eq__)
+Q(__le__)
+Q(__ge__)
 
 Q(micropython)
 Q(bytecode)
 Q(const)
 
-#if MICROPY_EMIT_X64 || MICROPY_EMIT_THUMB
+#if MICROPY_EMIT_NATIVE
 Q(native)
 Q(viper)
 Q(uint)
@@ -81,6 +85,8 @@ Q(label)
 Q(align)
 Q(data)
 #endif
+
+Q(builtins)
 
 Q(Ellipsis)
 Q(StopIteration)
@@ -458,4 +464,10 @@ Q(deleter)
 #if MICROPY_PY_ZLIBD
 Q(zlibd)
 Q(decompress)
+#endif
+
+#if MICROPY_PY_UJSON
+Q(ujson)
+Q(dumps)
+Q(loads)
 #endif
